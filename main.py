@@ -1,8 +1,8 @@
 import random
 import tensorflow as tf
 
-from dqn.agent import Agent
-from dqn.environment import GymEnvironment, SimpleGymEnvironment
+from rqsa.agent import Agent
+from rqsa.environment import GymEnvironment, SimpleGymEnvironment
 from config import get_config
 
 flags = tf.app.flags

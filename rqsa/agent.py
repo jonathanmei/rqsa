@@ -497,11 +497,11 @@ class Agent(BaseModel):
         self.update_target_q_network()
 
     def update_target_q_network(self):
-        for name in self.w.keys():
+        for name in self.t_w.keys():
             self.t_w_assign_op[name].eval({self.t_w_input[name]: self.w[name].eval()})
 
     def update_q_eval(self):
-        for name in self.w.keys():
+        for name in self.e_w.keys():
             self.e_w_assign_op[name].eval({self.e_w_input[name]: self.w[name].eval()})
 
     def save_weight_to_pkl(self):
