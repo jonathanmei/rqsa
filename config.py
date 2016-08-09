@@ -1,28 +1,28 @@
 class AgentConfig(object):
   #scale = 10000
   scale = 1000
-  scale = 5000
+  scale = 500
   display = False
 
   #max_step = 5000 * scale
-  max_step = 500 * scale
-  memory_size = 100 * scale
+  max_step = 50 * scale
+  memory_size = 10 * scale
 
-  batch_size = 32
+  batch_size = 64
   random_start = 30
   cnn_format = 'NCHW'
-  discount = 0.99
+  discount = 0.995
   target_q_update_step = 1 * scale
-  learning_rate = 0.00025
-  learning_rate_minimum = 0.00025
-  learning_rate_decay = 0.96
+  learning_rate = 0.005
+  learning_rate_minimum = 0.0025
+  learning_rate_decay = 0.995
   learning_rate_decay_step = 5 * scale
 
   ep_end = 0.1
   ep_start = 1.
   ep_end_t = memory_size
 
-  history_length = 8
+  history_length = 4
   train_frequency = 4
   learn_start = 5. * scale
 
