@@ -234,16 +234,18 @@ class Agent(BaseModel):
         })
         self.update_q_eval()
 
-        lstm_out_t = self.lstm_out.eval({self.s_t: s_t, self.init_state: np.zeros([self.batch_size, self.lstm_state_size])})
         lstm_out_t_plus_1 = self.lstm_out.eval({self.s_t: s_t_plus_1, self.init_state: np.zeros([self.batch_size, self.lstm_state_size])})
         target_s_t_plus_1 = np.concatenate([lstm_out_t_plus_1, np.expand_dims(reward, 2)], axis=2)
         #_, p_t, loss_p, summary_str_p = self.sess.run([self.optim_p, self.p, self.loss_p, self.p_summary], {
+
         self.sess.run([self.optim_p,], {
-          self.lstm_out: lstm_out_t,
+          self.s_t: s_t,
+          self.init_state: np.zeros([self.batch_size, self.lstm_state_size]),
           self.action_0: np.expand_dims(action, 2),
           self.target_s_t_plus_1: target_s_t_plus_1,
           self.learning_rate_step: self.step,
         })
+        print('past optim_p')
 
         self.writer.add_summary(summary_str, self.step)
         self.total_loss += loss
