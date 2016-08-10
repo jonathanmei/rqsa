@@ -139,16 +139,16 @@ class Agent(BaseModel):
         if random.random() < ep:
             action = random.randrange(self.env.action_size)
         else:
-            rew_hats = np.zeros([0] * self.env.action_size)
-            q_hats = np.zeros([0] * self.env.action_size)
+            rew_hats = np.zeros((self.env.action_size,))
+            q_hats = np.zeros((self.env.action_size,))
             for i in xrange(self.env.action_size):
-                e_action = i
+                e_action = [[[i]]]
                 e_p = self.e_p.eval({self.e_lstm_out: lstm_out, self.e_action_0: e_action})
                 rew_hats[i] = np.squeeze(e_p[:, :, -1])
                 q_hats[i] = np.squeeze(self.e_q.eval({self.e_s_t: e_p[:, :, 0:-1]}))
             q = (1 - self.lam) * np.squeeze(self.e_q.eval({self.e_lstm_out: lstm_out})[0, -1, :]) + \
                 self.lam * (rew_hats + self.config.discount * q_hats)
-            action = self.e_q_action.eval({self.e_q: q})
+            action = self.e_q_action.eval({self.e_q: [[q]]})
 
         return action
 
@@ -160,16 +160,17 @@ class Agent(BaseModel):
         if random.random() < ep:
             action = random.randrange(self.env.action_size)
         else:
-            lstm_out_t = self.lstm_out.eval({self.s_t: s_t})
-            rew_hats = np.zeros([0] * self.env.action_size)
-            q_hats = np.zeros([0] * self.env.action_size)
+            lstm_out_t = self.lstm_out.eval({self.s_t: [s_t], self.init_state: np.zeros([1, self.lstm_state_size])})
+            rew_hats = np.zeros((self.env.action_size,))
+            q_hats = np.zeros((self.env.action_size,))
             for i in xrange(self.env.action_size):
-                action = i
-                p = self.e_p.eval({self.e_lstm_out: lstm_out_t, self.e_action_0: action})
-                rew_hats[i] = np.squeeze(p[:,:,-1])
-                q_hats[i] = np.squeeze(self.e_q.eval({self.e_s_t: p[:, :, 0:-1]}))
-            q = (1-self.lam)*np.squeeze(self.q.eval({self.s_t: s_t})[0, -1, :]) + self.lam*(rew_hats + self.config.discount * q_hats)
-            action = self.e_q_action.eval({self.e_q: q})
+                action = [[[i]]]
+                p = self.e_p.eval({self.e_lstm_out: lstm_out_t[:, [-1], :], self.e_action_0: action})
+                rew_hats[i] = np.squeeze(p[:, :, -1])
+                q_hats[i] = np.amax(np.squeeze(self.e_q.eval({self.e_lstm_out: p[:, :, 0:-1]})))
+            q = (1-self.lam)*np.squeeze(self.q.eval({self.s_t: [s_t], self.init_state: np.zeros([1, self.lstm_state_size])})[0, -1, :]) +\
+                self.lam*(rew_hats + self.config.discount * q_hats)
+            action = self.e_q_action.eval({self.e_q: [[q]]})
         return action
 
     def update_lstm_states(self, act_prev, rew_prev, screen, terminal):
@@ -233,14 +234,13 @@ class Agent(BaseModel):
         })
         self.update_q_eval()
 
-
-        lstm_out_t = self.lstm_out.eval({self.s_t: s_t})
-        lstm_out_t_plus_1 = self.lstm_out.eval({self.s_t: s_t_plus_1})
-        target_s_t_plus_1 = np.concat([lstm_out_t_plus_1, reward], axis=2)
+        lstm_out_t = self.lstm_out.eval({self.s_t: s_t, self.init_state: np.zeros([self.batch_size, self.lstm_state_size])})
+        lstm_out_t_plus_1 = self.lstm_out.eval({self.s_t: s_t_plus_1, self.init_state: np.zeros([self.batch_size, self.lstm_state_size])})
+        target_s_t_plus_1 = np.concatenate([lstm_out_t_plus_1, np.expand_dims(reward, 2)], axis=2)
         #_, p_t, loss_p, summary_str_p = self.sess.run([self.optim_p, self.p, self.loss_p, self.p_summary], {
         self.sess.run([self.optim_p,], {
           self.lstm_out: lstm_out_t,
-          self.action_0: action,
+          self.action_0: np.expand_dims(action, 2),
           self.target_s_t_plus_1: target_s_t_plus_1,
           self.learning_rate_step: self.step,
         })
@@ -462,10 +462,10 @@ class Agent(BaseModel):
             self.target_s_t_plus_1 = tf.placeholder('float32', [None, self.history_length, self.lstm_out_size + 1], name='target_s_t_plus_1') #plus 1 for reward
             s_t_plus_1_hat = self.p
             self.delta_p = self.target_s_t_plus_1 - s_t_plus_1_hat
-            self.clipped_delta_p = tf.clip_by_value(self.delta_p, self.min_delta, self.max_delta, name='clipped_delta')
+            self.clipped_delta_p = tf.clip_by_value(self.delta_p, self.min_delta, self.max_delta, name='clipped_delta_p')
             self.loss_p = tf.reduce_mean(tf.square(self.clipped_delta_p), name='loss_p')
             self.optim_p = tf.train.AdamOptimizer(
-                self.learning_rate_op, beta1=0.95, beta2=0.99, epsilon=0.01).minimize(self.loss)
+                self.learning_rate_op, beta1=0.95, beta2=0.99, epsilon=0.01).minimize(self.loss_p)
 
 
         with tf.variable_scope('summary'):
