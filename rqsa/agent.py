@@ -234,13 +234,19 @@ class Agent(BaseModel):
         })
         self.update_q_eval()
 
+        lstm_out_t = self.lstm_out.eval({self.s_t: s_t, self.init_state: np.zeros([self.batch_size, self.lstm_state_size])})
         lstm_out_t_plus_1 = self.lstm_out.eval({self.s_t: s_t_plus_1, self.init_state: np.zeros([self.batch_size, self.lstm_state_size])})
         target_s_t_plus_1 = np.concatenate([lstm_out_t_plus_1, np.expand_dims(reward, 2)], axis=2)
         #_, p_t, loss_p, summary_str_p = self.sess.run([self.optim_p, self.p, self.loss_p, self.p_summary], {
-
+        print(self.optim_p)
+        print(self.lstm_out.get_shape())
+        print(lstm_out_t.shape)
+        print(self.action_0.get_shape())
+        print(np.expand_dims(action, 2).shape)
+        print(self.target_s_t_plus_1.get_shape())
+        print(target_s_t_plus_1.shape)
         self.sess.run([self.optim_p,], {
-          self.s_t: s_t,
-          self.init_state: np.zeros([self.batch_size, self.lstm_state_size]),
+          self.lstm_out: lstm_out_t,
           self.action_0: np.expand_dims(action, 2),
           self.target_s_t_plus_1: target_s_t_plus_1,
           self.learning_rate_step: self.step,
@@ -466,8 +472,11 @@ class Agent(BaseModel):
             self.delta_p = self.target_s_t_plus_1 - s_t_plus_1_hat
             self.clipped_delta_p = tf.clip_by_value(self.delta_p, self.min_delta, self.max_delta, name='clipped_delta_p')
             self.loss_p = tf.reduce_mean(tf.square(self.clipped_delta_p), name='loss_p')
+
+            #only_p = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "")
+            only_p = [self.w['k1_w'],self.w['k1_b'],self.w['p_w'],self.w['p_b']]
             self.optim_p = tf.train.AdamOptimizer(
-                self.learning_rate_op, beta1=0.95, beta2=0.99, epsilon=0.01).minimize(self.loss_p)
+                self.learning_rate_op, beta1=0.95, beta2=0.99, epsilon=0.01).minimize(self.loss_p, var_list=only_p)
 
 
         with tf.variable_scope('summary'):
